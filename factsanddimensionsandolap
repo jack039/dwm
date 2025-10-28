@@ -1,0 +1,172 @@
+'''-- Dimension Tables
+
+CREATE TABLE Dim_Product (
+    Product_ID INT PRIMARY KEY,
+    Product_Name VARCHAR(50),
+    Category VARCHAR(30),
+    Weight DECIMAL(8,2),
+    Price DECIMAL(10,2)
+);
+
+CREATE TABLE Dim_Supplier (
+    Supplier_ID INT PRIMARY KEY,
+    Supplier_Name VARCHAR(50),
+    Location VARCHAR(50),
+    Contact_No VARCHAR(15)
+);
+
+CREATE TABLE Dim_Customer (
+    Customer_ID INT PRIMARY KEY,
+    Customer_Name VARCHAR(50),
+    City VARCHAR(40),
+    Region VARCHAR(30)
+);
+
+CREATE TABLE Dim_Warehouse (
+    Warehouse_ID INT PRIMARY KEY,
+    Warehouse_Name VARCHAR(50),
+    Location VARCHAR(40),
+    Capacity INT
+);
+
+CREATE TABLE Dim_Time (
+    Time_ID INT PRIMARY KEY,
+    Date DATE,
+    Month VARCHAR(15),
+    Quarter VARCHAR(10),
+    Year INT
+);
+
+-- Fact Table
+
+CREATE TABLE Fact_Shipment (
+    Shipment_ID INT PRIMARY KEY,
+    Product_ID INT,
+    Supplier_ID INT,
+    Customer_ID INT,
+    Warehouse_ID INT,
+    Time_ID INT,
+    Total_Quantity_Shipped INT,
+    Total_Transport_Cost DECIMAL(10,2),
+    Delivery_Time INT,
+    Delay_Days INT,
+    Total_Value DECIMAL(12,2),
+    FOREIGN KEY (Product_ID) REFERENCES Dim_Product(Product_ID),
+    FOREIGN KEY (Supplier_ID) REFERENCES Dim_Supplier(Supplier_ID),
+    FOREIGN KEY (Customer_ID) REFERENCES Dim_Customer(Customer_ID),
+    FOREIGN KEY (Warehouse_ID) REFERENCES Dim_Warehouse(Warehouse_ID),
+    FOREIGN KEY (Time_ID) REFERENCES Dim_Time(Time_ID)
+);
+'''
+
+'''
+ROLLUP Operation:-
+To find total transportation cost per supplier and year, and a grand total:
+
+SELECT s.Supplier_Name, t.Year, 
+       SUM(f.Total_Transport_Cost) AS Total_Cost
+FROM Fact_Shipment f
+JOIN Dim_Supplier s ON f.Supplier_ID = s.Supplier_ID
+JOIN Dim_Time t ON f.Time_ID = t.Time_ID
+GROUP BY ROLLUP (s.Supplier_Name, t.Year);
+'''
+
+
+'''
+SLICE Operation:-
+To analyze shipments for the year 2024 only:
+
+SELECT p.Product_Name, SUM(f.Total_Quantity_Shipped) AS Quantity_2024
+FROM Fact_Shipment f
+JOIN Dim_Product p ON f.Product_ID = p.Product_ID
+JOIN Dim_Time t ON f.Time_ID = t.Time_ID
+WHERE t.Year = 2024
+GROUP BY p.Product_Name;
+'''
+
+'''
+DICE Operation:-
+To view shipments of Product ‘Laptop’ by Supplier ‘ABC Logistics’ in 2024:
+
+SELECT s.Supplier_Name, p.Product_Name, t.Year,
+       SUM(f.Total_Quantity_Shipped) AS Total_Quantity
+FROM Fact_Shipment f
+JOIN Dim_Supplier s ON f.Supplier_ID = s.Supplier_ID
+JOIN Dim_Product p ON f.Product_ID = p.Product_ID
+JOIN Dim_Time t ON f.Time_ID = t.Time_ID
+WHERE s.Supplier_Name = 'ABC Logistics' AND p.Product_Name = 'Laptop' AND t.Year = 2024
+GROUP BY s.Supplier_Name, p.Product_Name, t.Year;
+'''
+
+'''
+DRILL-DOWN Operation:-
+From yearly summary → to quarterly delivery performance:
+
+SELECT s.Supplier_Name, t.Year, t.Quarter,
+       AVG(f.Delivery_Time) AS Avg_Delivery_Time
+FROM Fact_Shipment f
+JOIN Dim_Supplier s ON f.Supplier_ID = s.Supplier_ID
+JOIN Dim_Time t ON f.Time_ID = t.Time_ID
+GROUP BY s.Supplier_Name, t.Year, t.Quarter;
+'''
+
+'''
+ROLL-UP Operation:-
+From quarterly data → to yearly summary:
+
+SELECT s.Supplier_Name, t.Year,
+       SUM(f.Total_Value) AS Annual_Sales_Value
+FROM Fact_Shipment f
+JOIN Dim_Supplier s ON f.Supplier_ID = s.Supplier_ID
+JOIN Dim_Time t ON f.Time_ID = t.Time_ID
+GROUP BY ROLLUP (s.Supplier_Name, t.Year);
+'''
+
+'''
+INSERT INTO Dim_Product VALUES
+(1, 'Laptop', 'Electronics', 2.5, 60000.00),
+(2, 'Smartphone', 'Electronics', 0.3, 30000.00),
+(3, 'Washing Machine', 'Home Appliances', 30.0, 25000.00),
+(4, 'Refrigerator', 'Home Appliances', 50.0, 45000.00);
+
+INSERT INTO Dim_Supplier VALUES
+(1, 'ABC Logistics', 'Mumbai', '9823012345'),
+(2, 'FastTrack Supply', 'Delhi', '9811122233'),
+(3, 'Global Shippers', 'Chennai', '9876543210');
+
+INSERT INTO Dim_Customer VALUES
+(1, 'Tech World', 'Pune', 'West'),
+(2, 'HomeStore', 'Bangalore', 'South'),
+(3, 'SmartBuy', 'Hyderabad', 'South'),
+(4, 'MegaMart', 'Delhi', 'North');
+
+INSERT INTO Dim_Warehouse VALUES
+(1, 'Central WH', 'Mumbai', 1000),
+(2, 'South WH', 'Chennai', 800),
+(3, 'North WH', 'Delhi', 1200);
+
+INSERT INTO Dim_Time VALUES
+(1, '2024-01-10', 'January', 'Q1', 2024),
+(2, '2024-03-20', 'March', 'Q1', 2024),
+(3, '2024-07-15', 'July', 'Q3', 2024),
+(4, '2025-01-05', 'January', 'Q1', 2025),
+(5, '2025-04-12', 'April', 'Q2', 2025);
+
+INSERT INTO Fact_Shipment VALUES
+(1, 1, 1, 1, 1, 1, 100, 15000.00, 3, 0, 6000000.00),
+(2, 2, 1, 2, 2, 2, 200, 20000.00, 4, 1, 6000000.00),
+(3, 3, 2, 3, 2, 3, 50, 12000.00, 6, 2, 1250000.00),
+(4, 4, 3, 4, 3, 4, 30, 18000.00, 5, 0, 1350000.00),
+(5, 1, 2, 1, 1, 5, 80, 13000.00, 2, 0, 4800000.00),
+(6, 2, 3, 2, 2, 5, 150, 16000.00, 4, 1, 4500000.00);
+
+'''
+
+'''
+SELECT * FROM Dim_Product;
+SELECT * FROM Dim_Supplier;
+SELECT * FROM Dim_Customer;
+SELECT * FROM Dim_Warehouse;
+SELECT * FROM Dim_Time;
+SELECT * FROM Fact_Shipment;
+'''
